@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL 数据管理器</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>SQL 数据管理器</h1>
+            <p>基于 SQLPub 的在线数据库查询工具</p>
+        </header>
+
+        <main class="main-content">
+            <!-- SQL编辑器 -->
+            <section class="sql-editor">
+                <h2>SQL 查询编辑器</h2>
+                <textarea id="sqlInput" placeholder="请输入SQL语句，例如：SELECT * FROM users LIMIT 10;">-- 查询数据库中的所有表
+SELECT TABLE_NAME as 表名, TABLE_COMMENT as 表注释 
+FROM INFORMATION_SCHEMA.TABLES 
+WHERE TABLE_SCHEMA = DATABASE();</textarea>
+                <div class="btn-group">
+                    <button id="executeBtn" class="btn btn-primary">▶ 执行查询</button>
+                    <button id="resetBtn" class="btn btn-secondary">↺ 重置</button>
+                    <button id="getTablesBtn" class="btn btn-success">📋 获取所有表</button>
+                </div>
+            </section>
+
+            <!-- 快捷操作 -->
+            <section class="quick-actions">
+                <h3>快捷查询</h3>
+                <div class="quick-btns">
+                    <button class="btn btn-secondary btn-small" data-sql="SHOW TABLES;">显示所有表</button>
+                    <button class="btn btn-secondary btn-small" data-sql="SELECT DATABASE() as 当前数据库;">当前数据库</button>
+                    <button class="btn btn-secondary btn-small" data-sql="SELECT VERSION() as 数据库版本;">数据库版本</button>
+                </div>
+            </section>
+
+            <!-- 智能查询 -->
+            <section class="smart-query-section">
+                <h2>🤖 智能查询</h2>
+                
+                <!-- 最近查询记录 -->
+                <div class="query-history" id="queryHistory">
+                    <label>📜 最近查询记录（最多保存5条）</label>
+                    <div class="history-list" id="historyList">
+                        <p class="history-empty">暂无查询记录</p>
+                    </div>
+                </div>
+
+                <div class="smart-query-wrapper">
+                    <!-- 步骤1: 构建查询 -->
+                    <div class="smart-query-step" id="step1">
+                        <div class="step-header">
+                            <span class="step-number">1</span>
+                            <span class="step-title">构建查询</span>
+                        </div>
+                        <div class="step-content">
+                            <!-- 选择表 -->
+                            <div class="form-group">
+                                <label>选择数据表</label>
+                                <div class="select-wrapper">
+                                    <select id="smartTableSelect">
+                                        <option value="">-- 请选择表 --</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- 字段选择 -->
+                            <div class="form-group fields-selection" id="fieldsSelection">
+                                <label>选择查询字段（不选则查询所有字段）</label>
+                                <div class="fields-checkbox-list" id="fieldsCheckboxList">
+                                    <p class="fields-hint">请先选择数据表</p>
+                                </div>
+                                <div class="fields-actions">
+                                    <button class="btn btn-small btn-secondary" id="selectAllFields">全选</button>
+                                    <button class="btn btn-small btn-secondary" id="deselectAllFields">全不选</button>
+                                    <button class="btn btn-small btn-warning" id="clearUncheckedFields">清除未选中</button>
+                                </div>
+                            </div>
+
+                            <!-- 字段条件列表 -->
+                            <div class="conditions-container" id="conditionsContainer">
+                                <label>查询条件</label>
+                                <div class="conditions-list" id="conditionsList">
+                                    <p class="conditions-hint">请先选择数据表</p>
+                                </div>
+                                <button class="btn btn-secondary btn-small" id="addConditionBtn">+ 添加条件</button>
+                            </div>
+
+
+                        </div>
+                    </div>
+
+                    <!-- 步骤2: 查询报告卡片 -->
+                    <div class="smart-query-step" id="step2">
+                        <div class="step-header">
+                            <span class="step-number">2</span>
+                            <span class="step-title">查询报告</span>
+                        </div>
+                        <div class="step-content">
+                            <div class="query-report-card" id="queryReportCard">
+                                <div class="report-header">
+                                    本次智能查询的数据表为【<span id="reportTableName">-</span>】
+                                </div>
+                                <div class="report-body">
+                                    <div class="selected-fields-summary" id="selectedFieldsSummary">
+                                        <!-- 选中字段摘要 -->
+                                    </div>
+                                    <div class="conditions-summary" id="conditionsSummary">
+                                        <!-- 条件列表 -->
+                                    </div>
+                                    <div class="logic-conditions">
+                                        <div class="form-group">
+                                            <label>与条件（输入条件编号，用逗号分隔，如：1,2）</label>
+                                            <input type="text" id="andConditions" placeholder="例如：1,2,3">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>或条件（输入条件编号，用逗号分隔，如：3,4）</label>
+                                            <input type="text" id="orConditions" placeholder="例如：4,5">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="report-footer">
+                                    <button class="btn btn-secondary" id="showSQLBtn">📄 生成SQL语句</button>
+                                    <button class="btn btn-primary" id="executeSmartQueryBtn">▶ 执行查询</button>
+                                </div>
+                            </div>
+
+                            <!-- SQL展示区域 -->
+                            <div class="sql-display hidden" id="sqlDisplay">
+                                <label>生成的SQL语句</label>
+                                <pre id="generatedSQL"></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 数据表格 -->
+            <section class="data-table-container">
+                <h2>查询结果</h2>
+                <div class="table-wrapper">
+                    <table id="dataTable">
+                        <thead id="tableHeader"></thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+                <div class="pagination" id="pagination"></div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 引入JS文件 -->
+    <script src="data_handle.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
