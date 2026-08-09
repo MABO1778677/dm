@@ -25,9 +25,9 @@ class DataHandler {
         this.connectionConfig = {
             host: "127.0.0.1",
             port: 3306,
-            dbName: "app_info",
-            dbUser: "mb1154820",
-            password: "pJbkyzeYJX1bQKTt"
+            dbName: "__DB_NAME__",
+            dbUser: "__DB_USER__",
+            password: "__PASSWD__"
         };
         
         this.cache = {
