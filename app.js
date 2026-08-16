@@ -256,6 +256,32 @@ WHERE TABLE_SCHEMA = DATABASE();`;
 /**
  * 渲染表格
  */
+
+/**
+ * 显示图片预览
+ */
+function showImagePreview(src) {
+    // 移除已存在的预览
+    const existing = document.querySelector('.img-preview-overlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'img-preview-overlay';
+    overlay.innerHTML = `
+        <div class="img-preview-box">
+            <img src="${src}" alt="预览">
+            <button class="img-preview-close">&times;</button>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay || e.target.classList.contains('img-preview-close')) {
+            overlay.remove();
+        }
+    });
+}
+
 function renderTable() {
     if (state.currentData.length === 0) {
         showEmptyState();
@@ -311,8 +337,22 @@ function renderTable() {
         fields.forEach(field => {
             const td = document.createElement('td');
             const value = rowData[field];
-            td.textContent = value !== null && value !== undefined ? value : '';
-            td.title = td.textContent;
+            if (value !== null && value !== undefined) {
+                const strValue = String(value);
+                if (strValue.startsWith('data:image/')) {
+                    const img = document.createElement('img');
+                    img.src = strValue;
+                    img.alt = '图片';
+                    img.className = 'table-cell-img';
+                    img.addEventListener('click', () => showImagePreview(strValue));
+                    td.appendChild(img);
+                } else {
+                    td.textContent = strValue;
+                    td.title = strValue;
+                }
+            } else {
+                td.textContent = '';
+            }
             tr.appendChild(td);
         });
         elements.tableBody.appendChild(tr);
