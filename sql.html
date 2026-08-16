@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>SQLHub API</title>
+</head>
+<body>
+<script src="sqlhub-token.js"></script>
+<script>
+const db = new SqlHubToken({
+    host: '127.0.0.1',
+    port: 3306,
+    dbName: "ret_db",
+    dbUser: "mb1154",
+    password: "sFkyEt3o7dV0IV1a"
+});
+
+// 解析URL中的SQL参数：/test.html?sql=SELECT * FROM apps LIMIT 10
+const params = new URLSearchParams(location.search);
+const sql = params.get('sql');
+
+if (sql) {
+    db.executeSQL(sql).then(result => {
+        document.body.innerText = JSON.stringify(result, null, 2);
+    }).catch(err => {
+        document.body.innerText = 'Error: ' + err.message;
+    });
+} else {
+    document.body.innerText = '用法：在URL后加 ?sql=你的SQL语句\n例：test.html?sql=SELECT * FROM apps LIMIT 10';
+}
+</script>
+</body>
+</html>

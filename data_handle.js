@@ -1,6 +1,7 @@
 /**
  * 数据库操作API封装
  * 提供丰富的增删改查功能
+ * 依赖：sqlhub-token.js（提供 token 管理和 SQL 执行能力）
  */
 
 /**
@@ -10,171 +11,136 @@
  */
 function wrapIdentifier(name) {
     if (!name) return name;
-    // 如果已经包含反引号则不再重复包裹
     if (name.startsWith('`') && name.endsWith('`')) return name;
-    // 转义内部反引号（每个`替换为``）
     return '`' + name.replace(/`/g, '``') + '`';
 }
 
 class DataHandler {
     constructor() {
-        this.baseUrl = 'https://client.sqlpub.com/api/database/execute';
-        this.connectionApiUrl = 'https://client.sqlpub.com/api/connection';
-        this.sqlTokenKey = 'tokenTool_sqlToken';
-        
+        // 兼容模式：优先使用 SqlHubToken，若不可用则回退到原有逻辑
+        if (typeof window.SqlHubToken !== 'undefined') {
+            try {
+                this.tokenManager = new window.SqlHubToken({
+                    host: "127.0.0.1",
+                    port: 3306,
+                    dbName: "ret_db",
+                    dbUser: "mb1154",
+                    password: "sFkyEt3o7dV0IV1a"
+                }, {
+                    storageKey: 'tokenTool_sqlToken'
+                });
+                this.connectionConfig = this.tokenManager.connectionConfig;
+                this.useTokenManager = true;
+            } catch (e) {
+                console.warn('SqlHubToken 初始化失败，使用兼容模式', e);
+                this._initFallback();
+            }
+        } else {
+            console.warn('SqlHubToken 未加载，使用兼容模式');
+            this._initFallback();
+        }
+    }
+
+    /**
+     * 初始化回退模式（兼容没有 sqlhub-token.js 的场景）
+     */
+    _initFallback() {
+        this.useTokenManager = false;
         this.connectionConfig = {
             host: "127.0.0.1",
             port: 3306,
-            dbName: "__DB_NAME__",
-            dbUser: "__DB_USER__",
-            password: "__PASSWD__"
+            dbName: "app_info",
+            dbUser: "mb1154820",
+            password: "pJbkyzeYJX1bQKTt"
         };
-        
-        this.cache = {
-            token: null,
-            lastValidated: 0,
-            validationCacheDuration: 5 * 60 * 1000
-        };
-    }
-
-    /**
-     * 获取当前存储的token
-     */
-    async getToken() {
-        return localStorage.getItem(this.sqlTokenKey) || '';
-    }
-
-    /**
-     * 保存token到本地存储
-     */
-    async saveToken(token) {
-        localStorage.setItem(this.sqlTokenKey, token);
-        this.cache.token = token;
-        this.cache.lastValidated = Date.now();
-    }
-
-    /**
-     * 从服务器获取新的token
-     */
-    async fetchNewToken() {
-        try {
-            const response = await fetch(this.connectionApiUrl, {
-                method: 'POST',
-                headers: {
-                    'accept': 'application/json, text/plain, */*',
-                    'content-type': 'application/json',
-                    'origin': 'https://client.sqlpub.com',
-                    'referer': 'https://client.sqlpub.com/workbench'
-                },
-                body: JSON.stringify(this.connectionConfig),
-                signal: AbortSignal.timeout(10000)
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP错误! 状态: ${response.status}`);
-            }
-
-            const data = await response.json();
-            
-            if (data.success && data.data && data.data.token) {
-                const newToken = data.data.token;
-                await this.saveToken(newToken);
-                return newToken;
-            } else {
-                throw new Error(data.errorMessage || '获取token失败');
-            }
-        } catch (error) {
-            throw new Error(`获取token失败: ${error.message}`);
-        }
-    }
-
-    /**
-     * 验证token是否有效
-     */
-    async validateToken(token) {
-        if (!token) return false;
-        
-        try {
-            const response = await fetch(this.baseUrl, {
-                method: 'POST',
-                headers: {
-                    'accept': 'application/json',
-                    'authorization': 'Bearer ' + token,
-                    'content-type': 'application/json'
-                },
-                body: JSON.stringify({ sql: 'SELECT 1;' }),
-                signal: AbortSignal.timeout(5000)
-            });
-
-            const data = await response.json();
-            return data && data.success;
-        } catch (error) {
-            return false;
-        }
-    }
-
-    /**
-     * 确保有有效的token
-     */
-    async ensureToken() {
-        const now = Date.now();
-        const cacheIsValid = this.cache.token && 
-                           (now - this.cache.lastValidated) < this.cache.validationCacheDuration;
-        
-        if (cacheIsValid) {
-            return this.cache.token;
-        }
-
-        let token = await this.getToken();
-        
-        if (token) {
-            const isValid = await this.validateToken(token);
-            if (isValid) {
-                this.cache.token = token;
-                this.cache.lastValidated = now;
-                return token;
-            }
-        }
-
-        token = await this.fetchNewToken();
-        return token;
+        this.baseUrl = 'https://client.sqlpub.com/api/database/execute';
+        this.connectionApiUrl = 'https://client.sqlpub.com/api/connection';
+        this.sqlTokenKey = 'tokenTool_sqlToken';
+        this.cache = { token: null, lastValidated: 0, validationCacheDuration: 5 * 60 * 1000 };
     }
 
     /**
      * 执行原始SQL查询
      */
     async executeRawSQL(sql, timeout = 25000) {
-        const token = await this.ensureToken();
+        if (this.useTokenManager && this.tokenManager) {
+            return await this.tokenManager.executeSQL(sql, timeout);
+        }
+        // 回退模式
+        const token = await this._ensureTokenFallback();
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
-
         try {
             const response = await fetch(this.baseUrl, {
                 method: 'POST',
                 headers: {
                     'accept': 'application/json, text/plain, */*',
                     'authorization': 'Bearer ' + token,
-                    'content-type': 'application/json',
-                    'origin': 'https://client.sqlpub.com',
-                    'referer': 'https://client.sqlpub.com/workbench'
+                    'content-type': 'application/json'
                 },
-                body: JSON.stringify({ sql: sql }),
+                body: JSON.stringify({ sql }),
                 signal: controller.signal
             });
-
             clearTimeout(timeoutId);
-
-            if (!response.ok) {
-                throw new Error(`HTTP错误! 状态: ${response.status}`);
-            }
-
+            if (!response.ok) throw new Error(`HTTP错误: ${response.status}`);
             return await response.json();
-        } catch (error) {
+        } catch (e) {
             clearTimeout(timeoutId);
-            if (error.name === 'AbortError') {
-                throw new Error('查询超时，请检查网络连接');
+            if (e.name === 'AbortError') throw new Error('查询超时');
+            throw e;
+        }
+    }
+
+    async _ensureTokenFallback() {
+        const now = Date.now();
+        if (this.cache.token && (now - this.cache.lastValidated) < this.cache.validationCacheDuration) {
+            return this.cache.token;
+        }
+        let token = localStorage.getItem(this.sqlTokenKey) || '';
+        if (token) {
+            const valid = await this._validateTokenFallback(token);
+            if (valid) {
+                this.cache.token = token;
+                this.cache.lastValidated = now;
+                return token;
             }
-            throw error;
+        }
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        try {
+            const resp = await fetch(this.connectionApiUrl, {
+                method: 'POST',
+                headers: { 'accept': 'application/json', 'content-type': 'application/json' },
+                body: JSON.stringify(this.connectionConfig),
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            const data = await resp.json();
+            if (data.success && data.data && data.data.token) {
+                token = data.data.token;
+                localStorage.setItem(this.sqlTokenKey, token);
+                this.cache.token = token;
+                this.cache.lastValidated = Date.now();
+                return token;
+            }
+            throw new Error(data.errorMessage || '获取token失败');
+        } catch (e) {
+            clearTimeout(timeoutId);
+            throw new Error('获取token失败: ' + e.message);
+        }
+    }
+
+    async _validateTokenFallback(token) {
+        try {
+            const resp = await fetch(this.baseUrl, {
+                method: 'POST',
+                headers: { 'authorization': 'Bearer ' + token, 'content-type': 'application/json' },
+                body: JSON.stringify({ sql: 'SELECT 1;' })
+            });
+            const data = await resp.json();
+            return data && data.success;
+        } catch {
+            return false;
         }
     }
 
@@ -184,9 +150,10 @@ class DataHandler {
      * 获取数据库中所有表
      */
     async getTables() {
+        const dbName = this.connectionConfig.dbName;
         const sql = `SELECT TABLE_NAME as table_name, TABLE_COMMENT as table_comment 
                      FROM INFORMATION_SCHEMA.TABLES 
-                     WHERE TABLE_SCHEMA = '${this.connectionConfig.dbName}'`;
+                     WHERE TABLE_SCHEMA = '${dbName}'`;
         const result = await this.executeRawSQL(sql);
         return result.data || [];
     }
@@ -195,11 +162,12 @@ class DataHandler {
      * 获取指定表的结构信息
      */
     async getTableStructure(tableName) {
+        const dbName = this.connectionConfig.dbName;
         const sql = `SELECT COLUMN_NAME as column_name, DATA_TYPE as data_type, 
                             IS_NULLABLE as is_nullable, COLUMN_DEFAULT as column_default,
                             COLUMN_COMMENT as column_comment
                      FROM INFORMATION_SCHEMA.COLUMNS 
-                     WHERE TABLE_SCHEMA = '${this.connectionConfig.dbName}' 
+                     WHERE TABLE_SCHEMA = '${dbName}' 
                      AND TABLE_NAME = '${tableName}'`;
         const result = await this.executeRawSQL(sql);
         return result.data || [];
@@ -209,9 +177,10 @@ class DataHandler {
      * 获取表的主键字段
      */
     async getPrimaryKey(tableName) {
+        const dbName = this.connectionConfig.dbName;
         const sql = `SELECT COLUMN_NAME as column_name 
                      FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE 
-                     WHERE TABLE_SCHEMA = '${this.connectionConfig.dbName}' 
+                     WHERE TABLE_SCHEMA = '${dbName}' 
                      AND TABLE_NAME = '${tableName}' 
                      AND CONSTRAINT_NAME = 'PRIMARY'`;
         const result = await this.executeRawSQL(sql);

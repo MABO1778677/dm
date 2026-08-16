@@ -3,8 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- CSP策略：阻止外部脚本/样式注入，只允许同源资源 -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://client.sqlpub.com;">
     <title>SQL 数据管理器</title>
     <link rel="stylesheet" href="style.css">
+    <!-- CSS层预隐藏注入内容（防止JS执行前闪现） -->
+    <style>
+        [data-shangma-branding], [data-shangma-report-modal],
+        .upma-micro-widget, .upma-widget-ad, .upma-widget-brand,
+        .shangma-branding, .shangma-report-modal {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            height: 0 !important;
+            width: 0 !important;
+            overflow: hidden !important;
+            position: absolute !important;
+            left: -9999px !important;
+        }
+        iframe[src*="upma"], iframe[src*="shangma"] {
+            display: none !important;
+        }
+        a[href*="upma.cn"], a[href*="shangma"] {
+            display: none !important;
+        }
+    </style>
+    <!-- 反注入脚本：必须在最前面执行 -->
+    <script src="anti-inject.js?v=2"></script>
 </head>
 <body>
     <div class="container">
@@ -154,7 +179,8 @@ WHERE TABLE_SCHEMA = DATABASE();</textarea>
     </div>
 
     <!-- 引入JS文件 -->
-    <script src="data_handle.js"></script>
-    <script src="app.js"></script>
+    <script src="sqlhub-token.js?v=2"></script>
+    <script src="data_handle.js?v=3"></script>
+    <script src="app.js?v=3"></script>
 </body>
 </html>

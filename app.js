@@ -270,7 +270,7 @@ function renderTable() {
         const th = document.createElement('th');
         th.textContent = field;
         th.setAttribute('data-field', field);
-        th.onclick = () => handleSort(field);
+        th.addEventListener('click', () => handleSort(field));
 
         const sortIndicator = document.createElement('span');
         sortIndicator.className = 'sort-indicator';
@@ -350,7 +350,7 @@ function renderPagination(totalItems) {
     let html = '';
 
     // 上一页
-    html += `<button ${state.currentPage === 1 ? 'disabled' : ''} onclick="changePage(${state.currentPage - 1})">上一页</button>`;
+    html += `<button data-page="${state.currentPage - 1}" ${state.currentPage === 1 ? 'disabled' : ''}>上一页</button>`;
 
     // 页码
     const maxVisible = 5;
@@ -362,25 +362,35 @@ function renderPagination(totalItems) {
     }
 
     if (startPage > 1) {
-        html += `<button onclick="changePage(1)">1</button>`;
+        html += `<button data-page="1">1</button>`;
         if (startPage > 2) html += `<span>...</span>`;
     }
 
     for (let i = startPage; i <= endPage; i++) {
-        html += `<button class="${i === state.currentPage ? 'active' : ''}" onclick="changePage(${i})">${i}</button>`;
+        html += `<button data-page="${i}" class="${i === state.currentPage ? 'active' : ''}">${i}</button>`;
     }
 
     if (endPage < totalPages) {
         if (endPage < totalPages - 1) html += `<span>...</span>`;
-        html += `<button onclick="changePage(${totalPages})">${totalPages}</button>`;
+        html += `<button data-page="${totalPages}">${totalPages}</button>`;
     }
 
     // 下一页
-    html += `<button ${state.currentPage === totalPages ? 'disabled' : ''} onclick="changePage(${state.currentPage + 1})">下一页</button>`;
+    html += `<button data-page="${state.currentPage + 1}" ${state.currentPage === totalPages ? 'disabled' : ''}>下一页</button>`;
 
     html += `<span class="pagination-info">共 ${totalItems} 条记录，${totalPages} 页</span>`;
 
     elements.pagination.innerHTML = html;
+
+    // 使用事件委托绑定分页按钮
+    elements.pagination.querySelectorAll('button[data-page]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const page = parseInt(btn.dataset.page);
+            if (!isNaN(page)) {
+                changePage(page);
+            }
+        });
+    });
 }
 
 /**
@@ -945,7 +955,7 @@ function renderConditions() {
         const removeBtn = document.createElement('button');
         removeBtn.className = 'btn-remove';
         removeBtn.textContent = '删除';
-        removeBtn.onclick = () => removeCondition(condition.id);
+        removeBtn.addEventListener('click', () => removeCondition(condition.id));
         row.appendChild(removeBtn);
         
         smartElements.conditionsList.appendChild(row);

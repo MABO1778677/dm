@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQLHub 智能数据库操作</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f0f2f5;
+            padding: 20px;
+            color: #333;
+            line-height: 1.5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            padding: 28px;
+        }
+        h1 {
+            font-size: 18px;
+            margin-bottom: 24px;
+            color: #1a1a1a;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section { margin-bottom: 18px; }
+        label {
+            display: block;
+            font-size: 13px;
+            color: #555;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+        select, input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 9px 12px;
+            border: 1px solid #d9d9d9;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.2s;
+            background: #fff;
+        }
+        select:focus, input:focus {
+            border-color: #1677ff;
+            box-shadow: 0 0 0 2px rgba(22,119,255,0.1);
+        }
+        .row { display: flex; gap: 12px; }
+        .row > * { flex: 1; }
+        .kv-pair {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .kv-pair input { flex: 1; }
+        .kv-pair select {
+            width: 90px;
+            flex: 0 0 auto;
+        }
+        .btn-icon {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: #f5f5f5;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 18px;
+            color: #999;
+            line-height: 1;
+            transition: all 0.2s;
+        }
+        .btn-icon:hover {
+            background: #ff4d4f;
+            color: #fff;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        .btn-primary {
+            background: #1677ff;
+            color: #fff;
+        }
+        .btn-primary:hover { background: #0958d9; }
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #555;
+            margin-left: 8px;
+        }
+        .btn-secondary:hover { background: #e8e8e8; }
+        .btn-add {
+            background: #fff;
+            border: 1px dashed #d9d9d9;
+            color: #555;
+            width: 100%;
+            margin-top: 6px;
+        }
+        .btn-add:hover {
+            border-color: #1677ff;
+            color: #1677ff;
+        }
+        .result-area {
+            margin-top: 20px;
+            padding: 0;
+            background: #fafafa;
+            border-radius: 8px;
+            border: 1px solid #f0f0f0;
+            min-height: 80px;
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        th, td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        th {
+            background: #fafafa;
+            font-weight: 600;
+            color: #555;
+            position: sticky;
+            top: 0;
+        }
+        tr:hover { background: #f5f5f5; }
+        .error {
+            color: #cf1322;
+            background: #fff2f0;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid #ffccc7;
+            margin: 12px;
+        }
+        .success {
+            color: #389e0d;
+            background: #f6ffed;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid #b7eb8f;
+            margin: 12px;
+        }
+        .sql-preview {
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
+            font-size: 13px;
+            background: #f6ffed;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid #b7eb8f;
+            color: #237804;
+            margin-top: 16px;
+            word-break: break-all;
+            line-height: 1.6;
+        }
+        .sql-preview.error-preview {
+            background: #fff2f0;
+            border-color: #ffccc7;
+            color: #cf1322;
+        }
+        .hidden { display: none !important; }
+        .hint {
+            font-size: 12px;
+            color: #999;
+            margin-top: 4px;
+            font-weight: normal;
+        }
+        .empty-state {
+            color: #999;
+            text-align: center;
+            padding: 40px 20px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        .badge-select { background: #e6f4ff; color: #0958d9; }
+        .badge-insert { background: #f6ffed; color: #389e0d; }
+        .badge-update { background: #fffbe6; color: #d48806; }
+        .badge-delete { background: #fff2f0; color: #cf1322; }
+        .required-tag {
+            color: #ff4d4f;
+            font-size: 12px;
+            margin-left: 4px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>
+            🔧 SQLHub 智能数据库操作
+            <span id="opBadge" class="badge badge-select">查询</span>
+        </h1>
+
+        <!-- 操作类型 -->
+        <div class="section">
+            <label>操作类型</label>
+            <select id="operation">
+                <option value="SELECT">🔍 查询数据 (SELECT)</option>
+                <option value="INSERT">➕ 新增数据 (INSERT)</option>
+                <option value="UPDATE">✏️ 修改数据 (UPDATE)</option>
+                <option value="DELETE">🗑️ 删除数据 (DELETE)</option>
+            </select>
+        </div>
+
+        <!-- 目标表名 -->
+        <div class="section">
+            <label>目标表名</label>
+            <input type="text" id="tableName" placeholder="例如：apps, users, orders...">
+        </div>
+
+        <!-- 查询字段 (SELECT) -->
+        <div class="section" id="fieldsSection">
+            <label>查询字段 <span class="hint">留空表示查询所有字段 (*)</span></label>
+            <div id="fieldsList"></div>
+            <button class="btn btn-add" onclick="addField()">+ 添加字段</button>
+        </div>
+
+        <!-- 字段-值对 (INSERT / UPDATE) -->
+        <div class="section hidden" id="valuesSection">
+            <label>字段与值 <span class="hint">字符串值请用单引号包裹，如 'hello'</span></label>
+            <div id="valuesList"></div>
+            <button class="btn btn-add" onclick="addValue()">+ 添加字段-值对</button>
+        </div>
+
+        <!-- WHERE 条件 -->
+        <div class="section" id="whereSection">
+            <label>WHERE 条件 <span class="hint">多条件自动以 AND 连接</span><span id="whereRequired" class="required-tag hidden">* 修改/删除必须填写</span></label>
+            <div id="whereList"></div>
+            <button class="btn btn-add" onclick="addWhere()">+ 添加条件</button>
+        </div>
+
+        <!-- LIMIT (仅 SELECT) -->
+        <div class="section" id="limitSection">
+            <div class="row">
+                <div>
+                    <label>返回条数 (LIMIT)</label>
+                    <input type="number" id="limitNum" placeholder="不填表示不限" min="1">
+                </div>
+                <div>
+                    <label>排序字段 (ORDER BY)</label>
+                    <input type="text" id="orderBy" placeholder="例如：id DESC">
+                </div>
+            </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="section" style="margin-top: 24px;">
+            <button class="btn btn-primary" onclick="execute()">▶ 执行 SQL</button>
+            <button class="btn btn-secondary" onclick="clearAll()">清空重置</button>
+        </div>
+
+        <!-- SQL 预览 -->
+        <div class="sql-preview" id="sqlPreview">-- SQL 预览 --</div>
+
+        <!-- 结果区域 -->
+        <div class="result-area" id="result">
+            <div class="empty-state">执行结果将显示在这里</div>
+        </div>
+    </div>
+
+    <script src="sqlhub-token.js"></script>
+    <script>
+        // 初始化数据库连接
+        const db = new SqlHubToken({
+            host: '127.0.0.1',
+            port: 3306,
+            dbName: "ret_db",
+            dbUser: "mb1154",
+            password: "sFkyEt3o7dV0IV1a"
+        });
+
+        const operation = document.getElementById('operation');
+        const fieldsSection = document.getElementById('fieldsSection');
+        const valuesSection = document.getElementById('valuesSection');
+        const whereSection = document.getElementById('whereSection');
+        const limitSection = document.getElementById('limitSection');
+        const opBadge = document.getElementById('opBadge');
+        const whereRequired = document.getElementById('whereRequired');
+
+        operation.addEventListener('change', updateUI);
+
+        // 监听所有输入变化，实时更新 SQL 预览
+        document.addEventListener('input', updateSQLPreview);
+
+        function updateUI() {
+            const op = operation.value;
+
+            // 更新徽章
+            const badgeMap = {
+                'SELECT': ['查询', 'badge-select'],
+                'INSERT': ['新增', 'badge-insert'],
+                'UPDATE': ['修改', 'badge-update'],
+                'DELETE': ['删除', 'badge-delete']
+            };
+            opBadge.textContent = badgeMap[op][0];
+            opBadge.className = 'badge ' + badgeMap[op][1];
+
+            // 控制各区域显示
+            if (op === 'SELECT') {
+                fieldsSection.classList.remove('hidden');
+                valuesSection.classList.add('hidden');
+                whereSection.classList.remove('hidden');
+                limitSection.classList.remove('hidden');
+                whereRequired.classList.add('hidden');
+            } else if (op === 'INSERT') {
+                fieldsSection.classList.add('hidden');
+                valuesSection.classList.remove('hidden');
+                whereSection.classList.add('hidden');
+                limitSection.classList.add('hidden');
+                whereRequired.classList.add('hidden');
+            } else if (op === 'UPDATE') {
+                fieldsSection.classList.add('hidden');
+                valuesSection.classList.remove('hidden');
+                whereSection.classList.remove('hidden');
+                limitSection.classList.add('hidden');
+                whereRequired.classList.remove('hidden');
+            } else if (op === 'DELETE') {
+                fieldsSection.classList.add('hidden');
+                valuesSection.classList.add('hidden');
+                whereSection.classList.remove('hidden');
+                limitSection.classList.add('hidden');
+                whereRequired.classList.remove('hidden');
+            }
+            updateSQLPreview();
+        }
+
+        // 添加查询字段
+        function addField(val) {
+            const div = document.createElement('div');
+            div.className = 'kv-pair';
+            div.innerHTML = `<input type="text" placeholder="字段名" class="field-input" value="${val || ''}"><button class="btn-icon" onclick="this.parentElement.remove();updateSQLPreview();">×</button>`;
+            document.getElementById('fieldsList').appendChild(div);
+            if (!val) div.querySelector('input').focus();
+        }
+
+        // 添加字段-值对
+        function addValue(key, val) {
+            const div = document.createElement('div');
+            div.className = 'kv-pair';
+            div.innerHTML = `<input type="text" placeholder="字段名" class="value-key" value="${key || ''}"><input type="text" placeholder="值" class="value-val" value="${val || ''}"><button class="btn-icon" onclick="this.parentElement.remove();updateSQLPreview();">×</button>`;
+            document.getElementById('valuesList').appendChild(div);
+        }
+
+        // 添加 WHERE 条件
+        function addWhere(key, op, val) {
+            const div = document.createElement('div');
+            div.className = 'kv-pair';
+            div.innerHTML = `<input type="text" placeholder="字段名" class="where-key" value="${key || ''}"><select class="where-op">${['=','!=','>','<','>=','<=','LIKE','IN'].map(o => `<option value="${o}" ${o===(op||'=')?'selected':''}>${o}</option>`).join('')}</select><input type="text" placeholder="值" class="where-val" value="${val || ''}"><button class="btn-icon" onclick="this.parentElement.remove();updateSQLPreview();">×</button>`;
+            document.getElementById('whereList').appendChild(div);
+        }
+
+        // 获取数据
+        function getFields() {
+            return [...document.querySelectorAll('.field-input')].map(i => i.value.trim()).filter(Boolean);
+        }
+        function getValues() {
+            const pairs = [];
+            document.querySelectorAll('#valuesList .kv-pair').forEach(p => {
+                const k = p.querySelector('.value-key').value.trim();
+                const v = p.querySelector('.value-val').value.trim();
+                if (k) pairs.push({key: k, val: v});
+            });
+            return pairs;
+        }
+        function getWheres() {
+            const pairs = [];
+            document.querySelectorAll('#whereList .kv-pair').forEach(p => {
+                const k = p.querySelector('.where-key').value.trim();
+                const op = p.querySelector('.where-op').value;
+                const v = p.querySelector('.where-val').value.trim();
+                if (k) pairs.push({key: k, op, val: v});
+            });
+            return pairs;
+        }
+
+        // 构建 SQL
+        function buildSQL() {
+            const op = operation.value;
+            const table = document.getElementById('tableName').value.trim();
+            if (!table) return '-- 请输入表名 --';
+
+            try {
+                if (op === 'SELECT') {
+                    const fields = getFields();
+                    const fieldStr = fields.length ? fields.join(', ') : '*';
+                    let sql = `SELECT ${fieldStr} FROM \`${table}\``;
+                    const wheres = getWheres();
+                    if (wheres.length) {
+                        sql += ' WHERE ' + wheres.map(w => `\`${w.key}\` ${w.op} ${w.val}`).join(' AND ');
+                    }
+                    const orderBy = document.getElementById('orderBy').value.trim();
+                    if (orderBy) sql += ` ORDER BY ${orderBy}`;
+                    const limit = document.getElementById('limitNum').value.trim();
+                    if (limit) sql += ` LIMIT ${limit}`;
+                    return sql;
+                } else if (op === 'INSERT') {
+                    const pairs = getValues();
+                    if (!pairs.length) return '-- 请添加字段-值对 --';
+                    const keys = pairs.map(p => `\`${p.key}\``).join(', ');
+                    const vals = pairs.map(p => p.val).join(', ');
+                    return `INSERT INTO \`${table}\` (${keys}) VALUES (${vals})`;
+                } else if (op === 'UPDATE') {
+                    const pairs = getValues();
+                    if (!pairs.length) return '-- 请添加字段-值对 --';
+                    const setStr = pairs.map(p => `\`${p.key}\` = ${p.val}`).join(', ');
+                    let sql = `UPDATE \`${table}\` SET ${setStr}`;
+                    const wheres = getWheres();
+                    if (wheres.length) {
+                        sql += ' WHERE ' + wheres.map(w => `\`${w.key}\` ${w.op} ${w.val}`).join(' AND ');
+                    }
+                    return sql;
+                } else if (op === 'DELETE') {
+                    let sql = `DELETE FROM \`${table}\``;
+                    const wheres = getWheres();
+                    if (wheres.length) {
+                        sql += ' WHERE ' + wheres.map(w => `\`${w.key}\` ${w.op} ${w.val}`).join(' AND ');
+                    }
+                    return sql;
+                }
+            } catch (e) {
+                return '-- SQL 构建错误 --';
+            }
+        }
+
+        // 验证 SQL 是否可执行
+        function validateSQL() {
+            const op = operation.value;
+            const wheres = getWheres();
+
+            if ((op === 'UPDATE' || op === 'DELETE') && wheres.length === 0) {
+                return { valid: false, message: '⚠️ 修改/删除操作必须填写 WHERE 条件，防止误操作' };
+            }
+
+            const sql = buildSQL();
+            if (sql.startsWith('--')) {
+                return { valid: false, message: sql };
+            }
+            return { valid: true, sql };
+        }
+
+        function updateSQLPreview() {
+            const preview = document.getElementById('sqlPreview');
+            const validation = validateSQL();
+
+            if (!validation.valid) {
+                preview.textContent = validation.message;
+                preview.classList.add('error-preview');
+            } else {
+                preview.textContent = validation.sql;
+                preview.classList.remove('error-preview');
+            }
+        }
+
+        // 执行 SQL
+        async function execute() {
+            const resultDiv = document.getElementById('result');
+            const validation = validateSQL();
+
+            if (!validation.valid) {
+                resultDiv.innerHTML = `<div class="error">${validation.message}</div>`;
+                return;
+            }
+
+            const sql = validation.sql;
+            resultDiv.innerHTML = '<div class="empty-state">执行中，请稍候...</div>';
+
+            try {
+                const result = await db.executeSQL(sql);
+                if (result.success) {
+                    if (result.data && Array.isArray(result.data) && result.data.length > 0) {
+                        // 表格展示查询结果
+                        const cols = Object.keys(result.data[0]);
+                        let html = '<div class="success">✓ 查询成功，共 ' + result.data.length + ' 条记录</div>';
+                        html += '<table><thead><tr>' + cols.map(c => `<th>${escapeHtml(c)}</th>`).join('') + '</tr></thead><tbody>';
+                        result.data.forEach(row => {
+                            html += '<tr>' + cols.map(c => {
+                                const v = row[c];
+                                if (v === null) return '<td><i style="color:#bbb;">NULL</i></td>';
+                                const str = String(v);
+                                if (str.length > 200) return `<td title="${escapeHtml(str)}">${escapeHtml(str.slice(0,200))}...</td>`;
+                                return `<td>${escapeHtml(str)}</td>`;
+                            }).join('') + '</tr>';
+                        });
+                        html += '</tbody></table>';
+                        resultDiv.innerHTML = html;
+                    } else if (result.data && Array.isArray(result.data) && result.data.length === 0) {
+                        resultDiv.innerHTML = '<div class="success">✓ 查询成功，返回 0 条记录</div>';
+                    } else {
+                        // 增删改成功
+                        const affected = result.affectedRows !== undefined ? result.affectedRows : '-';
+                        resultDiv.innerHTML = `<div class="success">✓ 执行成功，影响 ${affected} 行</div><pre style="margin:12px;font-size:12px;background:#fff;padding:12px;border-radius:6px;overflow:auto;">${JSON.stringify(result, null, 2)}</pre>`;
+                    }
+                } else {
+                    resultDiv.innerHTML = '<div class="error">✗ 执行失败: ' + escapeHtml(result.errorMessage || '未知错误') + '</div>';
+                }
+            } catch (err) {
+                resultDiv.innerHTML = '<div class="error">✗ 错误: ' + escapeHtml(err.message) + '</div>';
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function clearAll() {
+            document.getElementById('tableName').value = '';
+            document.getElementById('fieldsList').innerHTML = '';
+            document.getElementById('valuesList').innerHTML = '';
+            document.getElementById('whereList').innerHTML = '';
+            document.getElementById('limitNum').value = '';
+            document.getElementById('orderBy').value = '';
+            updateSQLPreview();
+            document.getElementById('result').innerHTML = '<div class="empty-state">执行结果将显示在这里</div>';
+            // 默认添加一个空输入框
+            addField();
+            addWhere();
+        }
+
+        // 初始化
+        updateUI();
+        addField();
+        addWhere();
+    </script>
+</body>
+</html>
